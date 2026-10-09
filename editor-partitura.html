@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>GURY SUEHTAM - Editor Partitura</title>
+<script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.5/build/cjs/vexflow.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+:root{--black:#0A0A0A;--gold:#D4AF37;--white:#F8FAFC;--gray:#2A2E35}
+*{box-sizing:border-box;font-family:Arial,sans-serif}
+body{margin:0;background:#EEF2F7;height:100vh;display:flex;flex-direction:column}
+.top{background:var(--black);color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--gold)}
+.logo-area{display:flex;align-items:center;gap:12px}
+.logo-icon{width:38px;height:38px;background:var(--gold);color:#000;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;border-radius:8px}
+.logo-text b{display:block;font-size:14px;letter-spacing:2px;color:var(--gold)}
+.logo-text span{font-size:9px;letter-spacing:3px;color:#aaa}
+.toolbar{background:#fff;border-bottom:1px solid #d1d5db;padding:8px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.main{flex:1;display:flex;overflow:hidden}
+.left{width:360px;background:#fff;border-right:1px solid #e2e8f0;overflow:auto;padding:10px}
+.right{flex:1;overflow:auto;padding:20px;background:var(--gray);display:flex;justify-content:center}
+.paper{background:var(--white);width:794px;min-height:1123px;padding:40px 30px 60px 30px;box-shadow:0 10px 40px rgba(0,0,0,.3);border:1px solid #ddd;position:relative}
+.staff-container{margin-bottom:25px;border:1px solid #e2e8f0;border-radius:8px;padding:4px;background:#fff;cursor:pointer}
+.staff-container.sel{outline:3px solid var(--gold)}
+.btn{padding:5px 9px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;cursor:pointer;font-size:11px;font-weight:700;margin:2px;display:inline-block}
+.btn.active{background:var(--black);color:var(--gold);border-color:var(--gold)}
+button{padding:7px 12px;border-radius:8px;border:1px solid #cbd5e1;background:var(--black);color:#fff;font-weight:700;cursor:pointer;font-size:12px}
+button.sec{background:#fff;color:var(--black)}
+button.finalizar{background:linear-gradient(135deg,var(--gold),#B8941F);color:#000;font-size:14px;padding:10px 22px;border:none;font-weight:900}
+.row{padding:6px 8px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:11px;display:flex;justify-content:space-between}
+.row:hover{background:#FFF8E1}
+.row.sus b{color:#7c3aed}
+.row.bemol b{color:#2563eb}
+.group{border:1px solid #e2e8f0;border-radius:8px;padding:8px;margin:6px 0}
+.group b.title{font-size:10px;display:block;margin-bottom:4px}
+.watermark{position:absolute;bottom:16px;right:20px;display:flex;align-items:center;gap:5px;opacity:.85}
+.wm-icon{width:20px;height:20px;background:var(--black);color:var(--gold);border:1px solid var(--gold);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:900}
+.wm-text{font-size:6.5px;font-weight:800;letter-spacing:1px;line-height:1}
+.wm-text span{display:block;font-size:5px;color:#666}
+.final-bar{display:none}
+body.final-mode #topBar, body.final-mode #toolBar, body.final-mode #leftPanel{display:none!important}
+body.final-mode.final-bar{display:flex!important;position:fixed;top:0;left:0;right:0;background:var(--black);color:var(--gold);padding:12px 20px;z-index:9999;justify-content:space-between;border-bottom:2px solid var(--gold)}
+body.final-mode #rightPanel{margin-top:60px}
+.loading{position:fixed;inset:0;background:rgba(10,10,10,.92);z-index:10000;display:none;justify-content:center;align-items:center;flex-direction:column;color:var(--gold)}
+.loading.show{display:flex}
+.spinner{width:60px;height:60px;border:5px solid rgba(212,175,55,.15);border-top:5px solid var(--gold);border-radius:50%;animation:spin.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--gold);color:#000;padding:14px 28px;border-radius:30px;font-weight:900;z-index:10001;display:none}
+.toast.show{display:block}
+</style>
+</head>
+<body>
+<div class="final-bar" id="finalBar"><div class="logo-area"><div class="logo-icon">GS</div><div class="logo-text"><b>GURY SUEHTAM</b><span>GS Partitura - Editor</span></div></div><button class="sec" onclick="voltarEdicao()">← Voltar</button></div>
+<div class="loading" id="loading"><div class="spinner"></div><div style="margin-top:16px;font-weight:800">Gerando imagem A4...</div></div>
+<div class="toast" id="toast">✅ Imagem salva!</div>
+<div class="top" id="topBar"><div class="logo-area"><div class="logo-icon">GS</div><div class="logo-text"><b>GURY SUEHTAM</b><span>GS Partitura - Editor</span></div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button onclick="addStaff()">+ Pauta</button><button class="sec" onclick="removeLast()">- Remover</button><button onclick="addBar()" style="background:var(--gold);color:#000;border:none">| Barra</button><button class="sec" onclick="removeBar()">- Barra</button><button id="beamBtn" class="btn" onclick="toggleBeam()">🔗 ON</button><button class="sec" onclick="clearStaff()">🗑️</button><button class="finalizar" onclick="finalizarESalvar()">✨ FINALIZAR</button></div></div>
+<div class="toolbar" id="toolBar"><b style="font-size:11px">TOM:</b><select id="keySel" onchange="setKey()"><option value="C">0 - Dó</option><option value="G">1# Sol</option><option value="D">2# Ré</option><option value="A">3# Lá</option><option value="E" selected>4# Mi - Sax Alto</option><option value="Bb">2b Sib</option><option value="Eb">3b Mib</option></select><b style="font-size:11px;margin-left:12px">COMPASSO:</b><select id="timeSel" onchange="setTime()"><option value="2/4">2/4</option><option value="3/4">3/4</option><option value="4/4" selected>4/4</option></select><span style="margin-left:auto;font-size:9px;background:var(--black);color:var(--gold);padding:4px 8px;border-radius:4px">GS Editor - Partitura</span></div>
+<div class="main"><div class="left" id="leftPanel"><div class="group"><b class="title">DURAÇÃO</b><div id="durs"></div></div><div class="group"><b class="title">PAUSAS</b><div id="rests"></div></div><div class="group"><b class="title">OITAVA</b><div id="octs"></div></div><div class="group"><b class="title">NOTAS - COM BEMÓIS ♭</b><div id="notes" style="max-height:260px;overflow:auto"></div></div></div><div class="right" id="rightPanel"><div class="paper" id="paper"><input id="title" placeholder="Digite o nome da Musica..." style="width:100%;text-align:center;font-size:22px;font-weight:900;border:none;border-bottom:2px solid #000;padding:10px;margin-bottom:25px;background:transparent"><div id="staves"></div><div class="watermark"><div class="wm-icon">GS</div><div class="wm-text">GURY SUEHTAM<span>EDITOR</span></div></div></div></div></div>
+<script>
+const { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Beam } = Vex.Flow;
+let state={oct:4,key:'E',time:'4/4',clef:'treble',dur:'8',autoBeam:true}; let staves=[]; let selStaff=null;
+const NOTE_MAP=[
+{pt:'Dó',en:'C',a:'',type:'nat'},{pt:'Dó#',en:'C',a:'#',type:'sus'},{pt:'Dób',en:'C',a:'b',type:'bemol'},
+{pt:'Ré',en:'D',a:'',type:'nat'},{pt:'Ré#',en:'D',a:'#',type:'sus'},{pt:'Réb',en:'D',a:'b',type:'bemol'},
+{pt:'Mi',en:'E',a:'',type:'nat'},{pt:'Mib',en:'E',a:'b',type:'bemol'},
+{pt:'Fá',en:'F',a:'',type:'nat'},{pt:'Fá#',en:'F',a:'#',type:'sus'},
+{pt:'Sol',en:'G',a:'',type:'nat'},{pt:'Sol#',en:'G',a:'#',type:'sus'},{pt:'Solb',en:'G',a:'b',type:'bemol'},
+{pt:'Lá',en:'A',a:'',type:'nat'},{pt:'Lá#',en:'A',a:'#',type:'sus'},{pt:'Láb',en:'A',a:'b',type:'bemol'},
+{pt:'Si',en:'B',a:'',type:'nat'},{pt:'Sib',en:'B',a:'b',type:'bemol'},
+];
+const DURS=[{id:'w',name:'Semibreve',vex:'w'},{id:'h',name:'Mínima',vex:'h'},{id:'q',name:'Semínima',vex:'q'},{id:'8',name:'Colcheia',vex:'8'},{id:'16',name:'Semicolcheia',vex:'16'}];
+const RESTS=[{id:'wr',name:'Pausa Semibreve',vex:'wr'},{id:'hr',name:'Pausa Mínima',vex:'hr'},{id:'qr',name:'Pausa Semínima',vex:'qr'}];
+function renderStaff(st){
+  const div=document.getElementById('vf-'+st.id); if(!div) return; div.innerHTML='';
+  try{
+    const r=new Renderer(div, Renderer.Backends.SVG); r.resize(720,130);
+    const ctx=r.getContext();
+    const stave=new Stave(10,10,700);
+    stave.addClef(st.clef); stave.addKeySignature(st.key); stave.addTimeSignature(st.time); stave.setContext(ctx).draw();
+    if(!st.notes.length) return;
+    const vf=[]; const mp=[];
+    st.notes.forEach((n,i)=>{
+      if(n.dur.includes('r')){ vf.push(new StaveNote({clef:st.clef,keys:['b/4'],duration:n.vex})); mp.push(i);}
+      else { const vn=new StaveNote({clef:st.clef,keys:[n.en.toLowerCase()+(n.a||'')+'/'+n.oct],duration:n.vex}); if(n.a==='#') vn.addModifier(new Accidental('#')); if(n.a==='b') vn.addModifier(new Accidental('b')); vf.push(vn); mp.push(i); }
+    });
+    const voice=new Voice({num_beats:100,beat_value:4}); voice.setMode(Voice.Mode.SOFT); voice.addTickables(vf);
+    new Formatter().joinVoices([voice]).format([voice],550); voice.draw(ctx,stave);
+    if(state.autoBeam&&vf.length>=2){
+      const beams=[]; let g=[]; let last=null; const flush=()=>{ if(g.length>=2){try{beams.push(new Beam(g));}catch(e){}} g=[]; last=null;};
+      vf.forEach((vn,idx)=>{ const o=st.notes[mp[idx]]; const hasBar=st.bars&&st.bars.includes(idx); if(hasBar) flush(); if(o.dur.includes('r')||!['8','16'].includes(o.vex)){ flush(); return; } if(g.length===0){g.push(vn); last=o.vex;} else { if(o.vex!==last){flush(); g.push(vn); last=o.vex;} else { g.push(vn); if(g.length>=2) flush(); } } }); flush(); beams.forEach(b=>{try{b.setContext(ctx).draw();}catch(e){}});
+    }
+    if(st.bars&&st.bars.length){ const y0=stave.getYForLine(0); const y1=stave.getYForLine(4); const h=y1-y0; st.bars.forEach(i=>{ if(i<=0||i>vf.length) return; try{const x=vf[i-1].getAbsoluteX()+40; ctx.fillRect(x,y0,1.5,h);}catch(e){}}); }
+  }catch(e){}
+}
+async function finalizarESalvar(){
+  if(!staves.some(s=>s.notes.length>0)){ alert('Adicione notas'); return; }
+  document.body.classList.add('final-mode'); document.getElementById('title').readOnly=true; document.getElementById('title').style.border='none';
+  const loading=document.getElementById('loading'); loading.classList.add('show');
+  await new Promise(r=>setTimeout(r,600)); document.getElementById('finalBar').style.display='none'; await new Promise(r=>setTimeout(r,100));
+  try{
+    const paper=document.getElementById('paper'); const title=document.getElementById('title').value||'partitura';
+    const canvas=await html2canvas(paper,{scale:2,backgroundColor:'#fff'});
+    const link=document.createElement('a'); link.download=title.replace(/[^a-z0-9]/gi,'_')+'_GURY_SUEHTAM.png'; link.href=canvas.toDataURL('image/png'); link.click();
+    const lead=JSON.parse(localStorage.getItem('gury_lead')||'{}');
+    await fetch('/api/partituras',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({titulo:title,staves, key:state.key, time:state.time, lead})});
+    loading.classList.remove('show'); document.getElementById('finalBar').style.display='flex';
+    const toast=document.getElementById('toast'); toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),2500);
+  }catch(e){ loading.classList.remove('show'); document.getElementById('finalBar').style.display='flex'; alert(e.message); }
+}
+function voltarEdicao(){ document.body.classList.remove('final-mode'); document.getElementById('title').readOnly=false; document.getElementById('title').style.borderBottom='2px solid #000'; }
+function toggleBeam(){ state.autoBeam=!state.autoBeam; document.getElementById('beamBtn').textContent=state.autoBeam?'🔗 ON':'🔗 OFF'; staves.forEach(s=>renderStaff(s)); }
+function init(){
+  const dDiv=document.getElementById('durs'); DURS.forEach(d=>{const b=document.createElement('span'); b.className='btn'+(d.id===state.dur?' active':''); b.textContent=d.name; b.onclick=()=>{document.querySelectorAll('#durs.btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); state.dur=d.id;}; dDiv.appendChild(b);});
+  const rDiv=document.getElementById('rests'); RESTS.forEach(r=>{const b=document.createElement('span'); b.className='btn'; b.textContent=r.name; b.onclick=()=>addRest(r.id,r.vex); rDiv.appendChild(b);});
+  const oDiv=document.getElementById('octs'); for(let i=2;i<=6;i++){const b=document.createElement('span'); b.className='btn'+(i===4?' active':''); b.textContent=i; b.onclick=()=>{document.querySelectorAll('#octs.btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); state.oct=i; renderList();}; oDiv.appendChild(b);}
+  renderList(); addStaff();
+}
+function renderList(){ const d=document.getElementById('notes'); d.innerHTML=''; NOTE_MAP.forEach(n=>{const r=document.createElement('div'); r.className='row '+n.type; r.innerHTML='<b>'+n.pt+'</b><span style="font-size:9px;opacity:.6">'+(n.a==='#'?'#':n.a==='b'?'♭':'')+'</span>'; r.onclick=()=>addNote(n.pt,n.en,n.a); d.appendChild(r);});}
+function addStaff(){ const id='s'+Date.now(); const wrap=document.createElement('div'); wrap.className='staff-container'; wrap.dataset.id=id; wrap.onclick=()=>select(id); const div=document.createElement('div'); div.id='vf-'+id; wrap.appendChild(div); document.getElementById('staves').appendChild(wrap); const st={id,wrap,div,clef:'treble',key:state.key,time:state.time,notes:[],bars:[]}; staves.push(st); renderStaff(st); select(id); }
+function removeLast(){ if(!staves.length) return; staves.pop().wrap.remove(); }
+function clearStaff(){ const s=staves.find(x=>x.id===selStaff)||staves[0]; if(!s) return; s.notes=[]; s.bars=[]; renderStaff(s); }
+function select(id){ selStaff=id; document.querySelectorAll('.staff-container').forEach(s=>s.classList.remove('sel')); document.querySelector('.staff-container[data-id="'+id+'"]')?.classList.add('sel'); }
+function setKey(){ const v=document.getElementById('keySel').value; state.key=v; const s=staves.find(x=>x.id===selStaff)||staves[0]; if(s){s.key=v; renderStaff(s);} }
+function setTime(){ const v=document.getElementById('timeSel').value; state.time=v; const s=staves.find(x=>x.id===selStaff)||staves[0]; if(s){s.time=v; renderStaff(s);} }
+function addNote(pt,en,a){ const st=staves.find(x=>x.id===selStaff)||staves[0]; if(!st) return; const vex=DURS.find(d=>d.id===state.dur)?.vex||'8'; st.notes.push({pt,en,a,oct:state.oct,dur:state.dur,vex}); renderStaff(st); }
+function addRest(id,vex){ const st=staves.find(x=>x.id===selStaff)||staves[0]; if(!st) return; st.notes.push({pt:'Pausa',en:'',a:'',oct:4,dur:id,vex}); renderStaff(st); }
+function addBar(){ const st=staves.find(x=>x.id===selStaff)||staves[0]; if(!st||!st.notes.length){alert('Nota antes');return;} st.bars.push(st.notes.length); renderStaff(st); }
+function removeBar(){ const st=staves.find(x=>x.id===selStaff)||staves[0]; if(!st||!st.bars.length){alert('Sem barra');return;} st.bars.pop(); renderStaff(st); }
+init();
+</script>
+</body>
+</html>
